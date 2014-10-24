@@ -19,16 +19,16 @@ const Scalar blue(0,0,255);
 const Scalar yellow(255,255,0);
 
 Mat thresh_frame,rawFrame, fingerFrame;
-vector<Vec4i> fingers;
 vector<Line> fingerLines;
-vector<Point> fingerPoints;
+vector<Point> handPolygon;
+vector<Point> fingers;
 
 Mat findConvexHull(Mat& img);
 
 void process_frame(Mat& frame);
 void drawConvexity(Mat& drawing, vector<Vec4i>& convDefect, vector<Point>& contours);
 void drawFingerLines(Mat& drawing);
-
+void findFingerPoints(vector<Vec4i>& convDefect, vector<Point>& contours);
 std::string getImageType(int number);
 
 float pointDistance(Point& a, Point& b);
@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
     namedWindow("Thresholded Frame");
     namedWindow("FG Mask MOG");
 
-    for(int keyboard=0;keyboard!=27 && cap.grab();keyboard = waitKey(0)) {
+    for(int keyboard=0;keyboard!=27 && cap.grab();keyboard = waitKey(300)) {
         cap >> rawFrame;
         
         thresh_frame = rawFrame.clone();
@@ -94,24 +94,23 @@ Mat findConvexHull(Mat& img){
     vector<int>handHullI( contours[handInd].size() );
     vector<Vec4i> handConvDefect( contours[handInd].size() );
 
-    convexHull( Mat(contours[handInd]), fingerPoints, true);
+    convexHull( Mat(contours[handInd]), handPolygon, true);
     convexHull( Mat(contours[handInd]), handHullI, false);
-    approxPolyDP( Mat(fingerPoints), fingerPoints,11,true);
+    approxPolyDP( Mat(handPolygon), handPolygon,11,true);
     if (contours[handInd].size() > 3 ) {
         convexityDefects(contours[handInd], handHullI, handConvDefect);
     }
 
     Rect handRect = boundingRect(contours[handInd]);
     filterConvexes(handConvDefect, contours[handInd], handRect);
-
+    findFingerPoints(handConvDefect, contours[handInd]);
     printFingerCount(rawFrame, (int) fingers.size());
-    drawFingerLines(rawFrame);
-    drawConvexity(rawFrame, handConvDefect, contours[handInd]);
+//    drawFingerLines(rawFrame);
+//    drawConvexity(rawFrame, handConvDefect, contours[handInd]);
+    rectangle(rawFrame, handRect.tl(), handRect.br(), blue);
+    for(int i=0; i<fingers.size();++i)
+        circle(rawFrame,fingers[i],2,yellow,2);
     
-    for(int i=0; i<fingerPoints.size();++i)
-        circle(rawFrame,fingerPoints[i],2,yellow,2);
-    
-
     return rawFrame;
 }
 
@@ -146,54 +145,40 @@ void filterConvexes(vector<Vec4i>& convDefect, vector<Point>& contours, Rect& bo
         Vec4i& v = (*d);
         int depth = v[3]/256;
         
-//        cout << setprecision(2) << "\t\tdepth: "<< depth << endl;
-        
         if(depth < tolerance)
             d = convDefect.erase(d);
         else
             ++d;
     }
+}
 
+void findFingerPoints(vector<Vec4i>& convDefect, vector<Point>& contours) {
+    int fingerTolerance = 50;
     
-    int fingerTolerance = 20;
-
     if(convDefect.size() < 2)
         return;
     
-    cout << "ConvDefect Size: " << convDefect.size() << endl;
     fingers.clear();
     fingerLines.clear();
-    d = convDefect.begin();
-    while( d!=convDefect.end()-1) {
-        Vec4i& v1 = (*d);
-        int start1idx = v1[0]; Point pt1Start( contours[start1idx] );
-        int end1idx = v1[1]; Point pt1End( contours[end1idx] );
-        int far1idx = v1[2]; Point pt1Far( contours[far1idx] );
-
-        Vec4i& v2 = (*(++d));
-        int start2idx = v2[0]; Point pt2Start( contours[start2idx] );
-        int end2idx = v2[1]; Point pt2End( contours[end2idx] );
-        int far2idx = v2[2]; Point pt2Far( contours[far2idx] );
+    vector<Point>::iterator pi = handPolygon.begin();
+    while(pi!=handPolygon.end()) {
+        Point p = (*pi);
+        vector<Vec4i>::iterator d = convDefect.begin();
+        while( d!=convDefect.end()) {
+            Vec4i& v = (*d);
+            Point ptStart( contours[v[0]] );
+            Point ptEnd( contours[v[1]] );
         
-        int distance = pointDistance(pt1End, pt2Start);
-        cout << "fingerdetect distance: " << distance << endl;
-        if(distance < fingerTolerance) {
-            Vec4i finger;
-            finger[0] = far1idx;
-            finger[1] = far2idx;
-            finger[2] = start2idx;
-            finger[3] = (v1[3]+v2[3])/2;
-            fingers.push_back(finger);
-            Point endPoint;
-            endPoint.x = (pt1Far.x+pt2Far.x)/2;
-            endPoint.y = (pt1Far.y+pt2Far.y)/2;
-            fingerLines.push_back(Line{pt2Start,endPoint});
+            int distanceStart = pointDistance(ptStart, p);
+            int distanceEnd = pointDistance(ptEnd, p);
+            if(distanceStart < fingerTolerance || distanceEnd < fingerTolerance) {
+                fingers.push_back(p);
+            }
+            ++d;
         }
+        ++pi;
     }
-}
 
-void findFingerPoints() {
-    
 }
 
 void putTextWrapper(Mat& img, char* text) {
