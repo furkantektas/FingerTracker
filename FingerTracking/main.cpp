@@ -21,21 +21,24 @@ const Scalar yellow(255,255,0);
 Mat thresh_frame,rawFrame, fingerFrame;
 vector<Line> fingerLines;
 vector<Point> handPolygon;
+vector<Point>* handContour;
 vector<Point> fingers;
+Point palmCenter;
+Rect handBoundingRect;
 
 Mat findConvexHull(Mat& img);
 
 void process_frame(Mat& frame);
 void drawConvexity(Mat& drawing, vector<Vec4i>& convDefect, vector<Point>& contours);
 void drawFingerLines(Mat& drawing);
-void findFingerPoints(vector<Vec4i>& convDefect, vector<Point>& contours);
+void findFingerPoints(vector<Vec4i>& convDefect, vector<Point>& contours, Rect& boundingRect);
 std::string getImageType(int number);
 
 float pointDistance(Point& a, Point& b);
 int findLargestContour(vector<vector<Point>>& contours);
 float getAngle(Point& s, Point& f, Point& e);
 void filterConvexes(vector<Vec4i>& convDefect, vector<Point>& contours, Rect& boundingRect);
-    
+void findPalmCenter();
 bool isHand(vector<Point>& contours, vector<Vec4i>& convDefect);
 void putTextWrapper(Mat& img, char* text);
 void printFingerCount(Mat& img, int fingerCount);
@@ -50,7 +53,7 @@ int main(int argc, char** argv) {
     namedWindow("Thresholded Frame");
     namedWindow("FG Mask MOG");
 
-    for(int keyboard=0;keyboard!=27 && cap.grab();keyboard = waitKey(300)) {
+    for(int keyboard=0;keyboard!=27 && cap.grab();keyboard = waitKey(0)) {
         cap >> rawFrame;
         
         thresh_frame = rawFrame.clone();
@@ -89,7 +92,7 @@ Mat findConvexHull(Mat& img){
     findContours( img, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE );
     
     int handInd = findLargestContour(contours);
-
+    handContour = &contours[handInd];
 
     vector<int>handHullI( contours[handInd].size() );
     vector<Vec4i> handConvDefect( contours[handInd].size() );
@@ -100,16 +103,15 @@ Mat findConvexHull(Mat& img){
     if (contours[handInd].size() > 3 ) {
         convexityDefects(contours[handInd], handHullI, handConvDefect);
     }
-
-    Rect handRect = boundingRect(contours[handInd]);
-    filterConvexes(handConvDefect, contours[handInd], handRect);
-    findFingerPoints(handConvDefect, contours[handInd]);
+    findPalmCenter();
+    handBoundingRect = boundingRect(contours[handInd]);
+    filterConvexes(handConvDefect, contours[handInd], handBoundingRect);
+    findFingerPoints(handConvDefect, contours[handInd], handBoundingRect);
     printFingerCount(rawFrame, (int) fingers.size());
-//    drawFingerLines(rawFrame);
-//    drawConvexity(rawFrame, handConvDefect, contours[handInd]);
-    rectangle(rawFrame, handRect.tl(), handRect.br(), blue);
-    for(int i=0; i<fingers.size();++i)
-        circle(rawFrame,fingers[i],2,yellow,2);
+    drawFingerLines(rawFrame);
+    drawConvexity(rawFrame, handConvDefect, contours[handInd]);
+    rectangle(rawFrame, handBoundingRect.tl(), handBoundingRect.br(), blue);
+
     
     return rawFrame;
 }
@@ -152,14 +154,13 @@ void filterConvexes(vector<Vec4i>& convDefect, vector<Point>& contours, Rect& bo
     }
 }
 
-void findFingerPoints(vector<Vec4i>& convDefect, vector<Point>& contours) {
-    int fingerTolerance = 50;
+void findFingerPoints(vector<Vec4i>& convDefect, vector<Point>& contours, Rect& boundingRect) {
+    int fingerTolerance = 20;
     
     if(convDefect.size() < 2)
         return;
     
     fingers.clear();
-    fingerLines.clear();
     vector<Point>::iterator pi = handPolygon.begin();
     while(pi!=handPolygon.end()) {
         Point p = (*pi);
@@ -179,6 +180,13 @@ void findFingerPoints(vector<Vec4i>& convDefect, vector<Point>& contours) {
         ++pi;
     }
 
+}
+
+void findPalmCenter() {
+    Moments mu;
+
+    mu = moments( *handContour, false );
+    palmCenter = Point( mu.m10/mu.m00 , mu.m01/mu.m00 );
 }
 
 void putTextWrapper(Mat& img, char* text) {
@@ -230,11 +238,31 @@ void drawConvexity(Mat& drawing, vector<Vec4i>& convDefect, vector<Point>& conto
     }
 }
 
+void findHandOrientation() {
+    
+}
+
 void drawFingerLines(Mat& drawing) {
+    if(handBoundingRect.height < 50 || handBoundingRect.width < 50)
+        return;
+
+    // if palm center is outside of handpolygon
+    if(pointPolygonTest(*handContour, palmCenter, false) < 0.01)
+        return;
+
+    fingerLines.clear();
+    vector<Point>::iterator v = fingers.begin();
+    while(v!=fingers.end()) {
+        fingerLines.push_back(Line{palmCenter,(*v)});
+        ++v;
+    }
+
+    circle(rawFrame,palmCenter,20,red,40);
     vector<Line>::iterator d = fingerLines.begin();
     while( d!=fingerLines.end() ) {
         Line& l = (*d++);
         line( drawing, l.start, l.end, blue, 3 );
+        circle(rawFrame,l.end,20,yellow,10);
     }
 }
 
