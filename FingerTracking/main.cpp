@@ -26,20 +26,21 @@ const Scalar yellow(255,255,0);
 Mat thresh_frame,rawFrame, fingerFrame;
 vector<Line> fingerLines;
 vector<Point> handPolygon;
-vector<Point>* handContour;
+vector<Point> handContour;
 vector<Point> fingers;
 Point palmCenter;
 Rect handBoundingRect;
 enum Hand_e hand;
 
 Mat findConvexHull(Mat& img);
-
+bool fingerDistanceComparator(const Point& f1, const Point& f2);
 void process_frame(Mat& frame);
 
 float pointDistance(const Point& a, const Point& b);
 float getAngle(const Point& p1,const Point& p2,const Point& p3);
 int findLargestContour(const vector<vector<Point>>& contours);
 void filterConvexes(vector<Vec4i>& convDefect, const Rect& boundingRect);
+void filterFingers();
 void findFingerPoints(const vector<Vec4i>& convDefect, const vector<Point>& contours, const Rect& boundingRect);
 void findPalmCenter();
 
@@ -50,11 +51,71 @@ void drawConvexity(Mat& drawing, const vector<Vec4i>& convDefect, const vector<P
 void findHandOrientation();
 void drawFingerLines(Mat& drawing);
 
+int frameCount = 0;
+int totalHandGravity = 0;
 
 std::string getImageType(int number);
 
+bool fingerDistanceComparator(const Point& f1, const Point& f2) {
+    return pointDistance(f1, palmCenter) < pointDistance(f2, palmCenter);
+}
+
 void findWhichHand() {
+    vector<Point>::const_iterator fItr = fingers.cbegin();
+    int maxDist = 0;
+    const Point* farthestFinger = 0;
     
+    if(fingers.size() < 1)
+        return;
+    
+    // constraint: thumb should be the farthest finger from palm center
+    while(fItr != fingers.cend()) {
+        int distance = pointDistance(palmCenter, *fItr);
+        if(distance > maxDist) {
+            maxDist = distance;
+            farthestFinger = &(*fItr);
+        }
+        ++fItr;
+    }
+
+    // constraint: palm center should be above than thumb finger
+    if(farthestFinger->y < palmCenter.y) {
+        ++frameCount;
+    
+        // note that camera is looking from below.
+        if(farthestFinger->x < palmCenter.x)
+            totalHandGravity += RIGHT;
+         else
+            totalHandGravity += LEFT;
+
+         hand = (enum Hand_e) ( ( ( (float)totalHandGravity) / frameCount ) > 0.4999);
+    }
+    cout << "totalHandGravity: " << totalHandGravity << " frameCount:" << frameCount << endl;
+}
+
+// clear variables
+void refresh() {
+    fingers.clear();
+    fingerLines.clear();
+    handPolygon.clear();
+    handContour.clear();
+}
+
+void filterFingers() {
+    if(fingers.size() > 5) {
+        std::sort(fingers.begin(),fingers.end(),fingerDistanceComparator);
+
+        // Moving iterator to 5th item
+        vector<Point>::iterator fItr = fingers.begin();
+        std::advance(fItr,5);
+    
+
+        // Removing all fingers after 5th finger
+        fingers.erase(fItr, fingers.end());
+    }
+//    for(fItr = fingers.begin(); fItr != fingers.end(); ++fItr) {
+//        
+//    }
 }
 
 int main(int argc, char** argv) {
@@ -76,10 +137,10 @@ int main(int argc, char** argv) {
         fingerFrame = thresh_frame.clone();
         fingerFrame = findConvexHull(fingerFrame);
         
-        
         imshow("Raw Frame", rawFrame);
         imshow("Thresholded Frame", thresh_frame);
         imshow("FG Mask MOG", fingerFrame);
+        refresh();
     }
     
     thresh_frame.release();
@@ -106,7 +167,7 @@ Mat findConvexHull(Mat& img){
     findContours( img, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE );
     
     int handInd = findLargestContour(contours);
-    handContour = &contours[handInd];
+    handContour = contours[handInd];
 
     vector<int>handHullI( contours[handInd].size() );
     vector<Vec4i> handConvDefect( contours[handInd].size() );
@@ -121,6 +182,8 @@ Mat findConvexHull(Mat& img){
     handBoundingRect = boundingRect(contours[handInd]);
     filterConvexes(handConvDefect, handBoundingRect);
     findFingerPoints(handConvDefect, contours[handInd], handBoundingRect);
+    findWhichHand();
+    filterFingers();
     printFingerCount(rawFrame, (int) fingers.size());
     drawFingerLines(rawFrame);
     drawConvexity(rawFrame, handConvDefect, contours[handInd]);
@@ -187,7 +250,7 @@ void findFingerPoints(const vector<Vec4i>& convDefect, const vector<Point>& cont
             int distanceStart = pointDistance(ptStart, p);
             int distanceEnd = pointDistance(ptEnd, p);
             if((distanceStart < fingerTolerance || distanceEnd < fingerTolerance) &&
-               (pointPolygonTest(*handContour, p, false) < 0.01)) {
+               (pointPolygonTest(handContour, p, false) < 0.01)) {
                 if(std::find(fingers.cbegin(), fingers.cend(), p) == fingers.cend())
                     fingers.push_back(p);
             }
@@ -201,7 +264,7 @@ void findFingerPoints(const vector<Vec4i>& convDefect, const vector<Point>& cont
 void findPalmCenter() {
     Moments mu;
 
-    mu = moments( *handContour, false );
+    mu = moments( handContour, false );
     palmCenter = Point( mu.m10/mu.m00 , mu.m01/mu.m00 );
 }
 
@@ -215,7 +278,7 @@ void putTextWrapper(Mat& img, const char* text) {
 
 void printFingerCount(Mat& img, int fingerCount) {
     char c[255];
-    sprintf(c,"Finger #%d", fingerCount);
+    sprintf(c,"Finger #%d Hand: %s", fingerCount, (hand == LEFT) ? "LEFT" : "RIGHT");
     putTextWrapper(img, c);
 }
 
@@ -250,7 +313,7 @@ void drawFingerLines(Mat& drawing) {
         return;
 
     // if palm center is outside of handpolygon
-    if(pointPolygonTest(*handContour, palmCenter, false) < 0.01)
+    if(pointPolygonTest(handContour, palmCenter, false) < 0.01)
         return;
 
     fingerLines.clear();
