@@ -11,6 +11,7 @@ using namespace std;
 typedef struct Line_s{
     Point start;
     Point end;
+    double angle;
 } Line;
 
 enum Hand_e{
@@ -23,7 +24,7 @@ const Scalar green(0,255,0);
 const Scalar blue(0,0,255);
 const Scalar yellow(255,255,0);
 
-Mat thresh_frame,rawFrame, fingerFrame;
+Mat thresh_frame,rawFrame;
 vector<Line> fingerLines;
 vector<Point> handPolygon;
 vector<Point> handContour;
@@ -34,23 +35,24 @@ enum Hand_e hand;
 
 const Point* labeledFingers[5];
 
-Mat findConvexHull(Mat& img);
+void findConvexHull(const Mat& img, Mat& drawingFrame);
 bool fingerDistanceComparator(const Point& f1, const Point& f2);
 void process_frame(Mat& frame);
 
 float pointDistance(const Point& a, const Point& b);
-float getAngle(const Point& p1,const Point& p2,const Point& p3);
+float getLineAngle(const Point& p1, const Point& p2);
 int findLargestContour(const vector<vector<Point>>& contours);
 void filterConvexes(vector<Vec4i>& convDefect, const vector<Point>& contours, const Rect& boundingRect);
 void filterFingers();
 void findFingerPoints(const vector<Vec4i>& convDefect, const vector<Point>& contours, const Rect& boundingRect);
 void findPalmCenter();
 
-void putTextWrapper(Mat& img, const char* text);
+void putTextWrapper(Mat& img, const char* text, int x=10, int y=30);
 void printFingerCount(Mat& img, int fingerCount);
 bool isHand(const vector<Point>& contours, const vector<Vec4i>& convDefect);
 void drawConvexity(Mat& drawing, const vector<Vec4i>& convDefect, const vector<Point>& contours);
 void findHandOrientation();
+void findFingerLines();
 void drawFingerLines(Mat& drawing);
 
 int frameCount = 0;
@@ -134,44 +136,65 @@ void filterFingers() {
     for(fItr = fingers.begin(); fItr != fingers.end(); ++fItr) {
         double dist = fingerDistanceFromPalmCenter(*fItr);
         if(dist < minFingerDist || dist > maxFingerDist)
-            fItr = fingers.erase(fItr);
+            fItr = fingers.erase(fItr); // TODO : exception
     }
     
     // finding thumb
  }
 
+void getCameraInfo(VideoCapture m_cam){
+    std::cout<<"CV_CAP_PROP_FRAME_WIDTH " << m_cam.get(CV_CAP_PROP_FRAME_WIDTH) << std::endl;
+    std::cout<<"CV_CAP_PROP_FRAME_HEIGHT " << m_cam.get(CV_CAP_PROP_FRAME_HEIGHT) << std::endl;
+    std::cout<<"CV_CAP_PROP_FPS " << m_cam.get(CV_CAP_PROP_FPS) << std::endl;
+    std::cout<<"CV_CAP_PROP_EXPOSURE " << m_cam.get(CV_CAP_PROP_EXPOSURE) << std::endl;
+    std::cout<<"CV_CAP_PROP_FORMAT " << m_cam.get(CV_CAP_PROP_FORMAT) << std::endl; //deafult CV_8UC3?!
+    std::cout<<"CV_CAP_PROP_CONTRAST " << m_cam.get(CV_CAP_PROP_CONTRAST) << std::endl;
+    std::cout<<"CV_CAP_PROP_BRIGHTNESS "<< m_cam.get(CV_CAP_PROP_BRIGHTNESS) << std::endl;
+    std::cout<<"CV_CAP_PROP_SATURATION "<< m_cam.get(CV_CAP_PROP_SATURATION) << std::endl;
+    std::cout<<"CV_CAP_PROP_HUE "<< m_cam.get(CV_CAP_PROP_HUE) << std::endl;
+    std::cout<<"CV_CAP_PROP_POS_FRAMES "<< m_cam.get(CV_CAP_PROP_POS_FRAMES) << std::endl;
+    std::cout<<"CV_CAP_PROP_FOURCC "<< m_cam.get(CV_CAP_PROP_FOURCC) << std::endl;
+    
+    int ex = static_cast<int>(m_cam.get(CV_CAP_PROP_FOURCC));     // Get Codec Type- Int form
+    char EXT[] = {(char)(ex & 255) , (char)((ex & 0XFF00) >> 8),(char)((ex & 0XFF0000) >> 16),(char)((ex & 0XFF000000) >> 24), 0};
+    cout << "Input codec type: " << EXT << endl;
+}
+
 int main(int argc, char** argv) {
-    VideoCapture cap("/Users/ft/Development/FingerTracking/FingerTracking/hand.m4v");
+//    VideoCapture cap("/Users/ft/Development/FingerTracking/FingerTracking/hand.m4v");
+    VideoCapture cap(0);
     if(!cap.isOpened()) // check if we succeeded
         return -1;
     
+    cap.set(CV_CAP_PROP_EXPOSURE, 0.0);
+    cap.set(CV_CAP_PROP_AUTO_EXPOSURE, 0 );
+    cap.set(CV_CAP_PROP_GAIN, 0.0);
+    
+    getCameraInfo(cap);
     //create GUI windows
-    namedWindow("Raw Frame");
     namedWindow("Thresholded Frame");
     namedWindow("FG Mask MOG");
-
-    for(int keyboard=0;keyboard!=27 && cap.grab();keyboard = waitKey(0)) {
+    
+    for(int keyboard=0;keyboard!=27 && cap.grab();keyboard = waitKey(20)) {
         cap >> rawFrame;
         
         thresh_frame = rawFrame.clone();
         process_frame(thresh_frame);
         
-        fingerFrame = thresh_frame.clone();
-        fingerFrame = findConvexHull(fingerFrame);
+        findConvexHull(thresh_frame,rawFrame);
         
-        imshow("Raw Frame", rawFrame);
         imshow("Thresholded Frame", thresh_frame);
-        imshow("FG Mask MOG", fingerFrame);
+        imshow("FG Mask MOG", rawFrame);
         refresh();
     }
     
     thresh_frame.release();
     rawFrame.release();
-    fingerFrame.release();
  }
 
 void process_frame(Mat& frame) {
     cvtColor(frame, frame, COLOR_RGB2GRAY);
+    threshold(frame,frame,70,255,THRESH_TOZERO);
     threshold(frame,frame,0,255,THRESH_BINARY + THRESH_OTSU);
     
     int erosion_size = 1;
@@ -182,14 +205,19 @@ void process_frame(Mat& frame) {
     dilate(frame, frame, element);
 }
 
-Mat findConvexHull(Mat& img){
+void findConvexHull(const Mat& img, Mat& drawingFrame){
     vector<vector<Point> > contours;
     vector<Vec4i> hierarchy;
 
-    findContours( img, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE );
+    Mat thresholded_img = img.clone();
+    findContours( thresholded_img, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE );
+    
+    if(contours.size() < 1)
+        return;
     
     int handInd = findLargestContour(contours);
     handContour = contours[handInd];
+    handBoundingRect = boundingRect(contours[handInd]);
 
     vector<int>handHullI( contours[handInd].size() );
     vector<Vec4i> handConvDefect( contours[handInd].size() );
@@ -197,28 +225,24 @@ Mat findConvexHull(Mat& img){
     convexHull( Mat(contours[handInd]), handPolygon, true);
     convexHull( Mat(contours[handInd]), handHullI, false);
 
-    Vec4f handLine;
-    fitLine(Mat(contours[handInd]), handLine, CV_DIST_L2, 0,0.01,0.01);
-    float y0 = handLine[3], x0 = handLine[2], slope = handLine[1]/handLine[0];
-    line( rawFrame, Point((x0-y0/slope),0), Point(x0+(640-y0)/slope,640), Scalar(255,255,255), 10 );
-    
     approxPolyDP( Mat(handPolygon), handPolygon,11,true);
     if (contours[handInd].size() > 3 ) {
         convexityDefects(contours[handInd], handHullI, handConvDefect);
     }
+    
     findPalmCenter();
-    handBoundingRect = boundingRect(contours[handInd]);
+    
     filterConvexes(handConvDefect, contours[handInd], handBoundingRect);
     findFingerPoints(handConvDefect, contours[handInd], handBoundingRect);
+    findFingerLines();
+    findHandOrientation();
     findWhichHand();
     filterFingers();
-    printFingerCount(rawFrame, (int) fingers.size());
-    drawFingerLines(rawFrame);
-    drawConvexity(rawFrame, handConvDefect, contours[handInd]);
-    rectangle(rawFrame, handBoundingRect.tl(), handBoundingRect.br(), blue);
-
-    
-    return rawFrame;
+    printFingerCount(drawingFrame, (int) fingers.size());
+    drawFingerLines(drawingFrame);
+    drawConvexity(drawingFrame, handConvDefect, contours[handInd]);
+    rectangle(drawingFrame, handBoundingRect.tl(), handBoundingRect.br(), blue);
+    return;
 }
 
 float pointDistance(const Point& a, const Point& b){
@@ -227,8 +251,12 @@ float pointDistance(const Point& a, const Point& b){
     return sqrt(dx*dx + dy*dy);
 }
 
-float getAngle(const Point& p1,const Point& p2,const Point& p3){
-    return abs(p1.y-p2.y)/sqrt((p1.x-p2.x)*(p1.x-p2.x)+(p1.y-p2.y)*(p1.y-p2.y)) * 180 / CV_PI;
+float getLineAngle(const Point& p1, const Point& p2){
+    double dy = p1.y - p2.y;
+    double dx = p1.x - p2.x;
+    double theta = atan2(dy, dx);
+    theta = theta*180/CV_PI + 180; // rads to degs
+    return theta;
 }
 
 int findLargestContour(const vector<vector<Point>>& contours) {
@@ -254,8 +282,6 @@ void filterConvexes(vector<Vec4i>& convDefect, const vector<Point>& contours, co
               p2( contours[v[1]]),
               p3( contours[v[2]]);
         int depth = v[3]/256;
-        
-        cout << p1 << " angle: " << getAngle(p1,p2,p3) << endl;
         
         if(depth < tolerance)
             d = convDefect.erase(d);
@@ -301,11 +327,11 @@ void findPalmCenter() {
     palmCenter = Point( mu.m10/mu.m00 , mu.m01/mu.m00 );
 }
 
-void putTextWrapper(Mat& img, const char* text) {
+void putTextWrapper(Mat& img, const char* text, int x, int y) {
     static const int fontFace = FONT_HERSHEY_SIMPLEX;
     static const double fontScale = 0.5;
     static const int thickness = 1;
-    static const cv::Point textOrg(10, 30);
+    cv::Point textOrg(x,y);
     cv::putText(img, text, textOrg, fontFace, fontScale, Scalar::all(255), thickness,8);
 }
 
@@ -337,32 +363,67 @@ void drawConvexity(Mat& drawing, const vector<Vec4i>& convDefect, const vector<P
     }
 }
 
-void findHandOrientation() {
-    
+bool lineAngleCompare(const Line& l1, const Line& l2) {
+    return l1.angle < l2.angle;
 }
 
-void drawFingerLines(Mat& drawing) {
+void findHandOrientation() {
+    vector<Line>::iterator lItr;
+    double mean = 0, std_dev = 0;
+    
+    if(fingerLines.size() < 2)
+        return;
+    
+    for(lItr = fingerLines.begin(); lItr != fingerLines.end(); ++lItr)
+        mean += lItr->angle;
+    mean /= fingerLines.size();
+    
+    std::vector<double> squares ;
+    for( lItr = fingerLines.begin(); lItr != fingerLines.end(); ++lItr)
+        squares.push_back( std::pow( lItr->angle - mean , 2 ) ) ;
+    std_dev = std::sqrt( std::accumulate( squares.begin( ) , squares.end( ) , 0 ) / squares.size( ) ) ;
+    
+    cout<< "Finger Angle Mean: " << mean<< " StdDev: " << std_dev << endl;
+    
+    double minAngle = mean - 2 * std_dev,
+           maxAngle = mean + 2 * std_dev;
+    
+    std::sort(fingerLines.begin(), fingerLines.end(), lineAngleCompare);
+    for(lItr = fingerLines.begin(); lItr != fingerLines.end(); ++lItr){
+        if(lItr->angle < minAngle || lItr->angle > maxAngle)
+            lItr = fingerLines.erase(lItr) - 1;
+    }
+}
+
+void findFingerLines() {
     if(handBoundingRect.height < 50 || handBoundingRect.width < 50)
         return;
-
+    
     // if palm center is outside of handpolygon
     if(pointPolygonTest(handContour, palmCenter, false) < 0.01)
         return;
-
+    
     fingerLines.clear();
     vector<Point>::const_iterator v = fingers.cbegin();
     while(v!=fingers.cend()) {
         const Point& endPoint = (*v);
-        fingerLines.push_back(Line{palmCenter,endPoint});
+        fingerLines.push_back(Line{palmCenter, endPoint, getLineAngle(endPoint, palmCenter)});
         ++v;
     }
+}
 
+void drawFingerLines(Mat& drawing) {
     circle(rawFrame,palmCenter,20,red,40);
     vector<Line>::iterator d = fingerLines.begin();
     while( d!=fingerLines.end() ) {
         const Line& l = (*d++);
+        
+        char buff[100];
+        sprintf(buff, "%.2f", l.angle);
+        
+        putTextWrapper(drawing, buff, l.end.x+50, l.end.y+50);
         line( drawing, l.start, l.end, blue, 3 );
-        circle(rawFrame,l.end,20,yellow,10);
+        circle(drawing,l.end,20,yellow,10);
     }
 }
 
