@@ -136,7 +136,7 @@ void filterFingers() {
     for(fItr = fingers.begin(); fItr != fingers.end(); ++fItr) {
         double dist = fingerDistanceFromPalmCenter(*fItr);
         if(dist < minFingerDist || dist > maxFingerDist)
-            fItr = fingers.erase(fItr); // TODO : exception
+            fItr = fingers.erase(fItr) - 1; // TODO : exception
     }
     
     // finding thumb
@@ -161,7 +161,6 @@ void getCameraInfo(VideoCapture m_cam){
 }
 
 int main(int argc, char** argv) {
-//    VideoCapture cap("/Users/ft/Development/FingerTracking/FingerTracking/hand.m4v");
     VideoCapture cap(0);
     if(!cap.isOpened()) // check if we succeeded
         return -1;
@@ -178,14 +177,18 @@ int main(int argc, char** argv) {
     for(int keyboard=0;keyboard!=27 && cap.grab();keyboard = waitKey(20)) {
         cap >> rawFrame;
         
-        thresh_frame = rawFrame.clone();
-        process_frame(thresh_frame);
+        // when working with video files sometimes rawFrame becomes null
+        // to avoid that check if rawFrame.data is not null
+        if(rawFrame.data) {
+            thresh_frame = rawFrame.clone();
+            process_frame(thresh_frame);
         
-        findConvexHull(thresh_frame,rawFrame);
+            findConvexHull(thresh_frame,rawFrame);
         
-        imshow("Thresholded Frame", thresh_frame);
-        imshow("FG Mask MOG", rawFrame);
-        refresh();
+            imshow("Thresholded Frame", thresh_frame);
+            imshow("FG Mask MOG", rawFrame);
+            refresh();
+        }
     }
     
     thresh_frame.release();
