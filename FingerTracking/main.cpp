@@ -45,7 +45,7 @@ int findLargestContour(const vector<vector<Point>>& contours);
 void filterConvexes(vector<Vec4i>& convDefect, const vector<Point>& contours, const Rect& boundingRect);
 void filterFingers();
 void findFingerPoints(const vector<Vec4i>& convDefect, const vector<Point>& contours, const Rect& boundingRect);
-void findPalmCenter();
+void findPalmCenter(const vector<Vec4i>& convDefect, const vector<Point>& contours);
 
 void putTextWrapper(Mat& img, const char* text, int x=10, int y=30);
 void printFingerCount(Mat& img, int fingerCount);
@@ -230,9 +230,9 @@ void findConvexHull(const Mat& img, Mat& drawingFrame){
         convexityDefects(contours[handInd], handHullI, handConvDefect);
     }
     
-    findPalmCenter();
-    
+   
     filterConvexes(handConvDefect, contours[handInd], handBoundingRect);
+    findPalmCenter(handConvDefect, contours[handInd]);
     findFingerPoints(handConvDefect, contours[handInd], handBoundingRect);
     findFingerLines();
     findHandOrientation();
@@ -320,11 +320,57 @@ void findFingerPoints(const vector<Vec4i>& convDefect, const vector<Point>& cont
 
 }
 
-void findPalmCenter() {
+void findPalmCenter(const vector<Vec4i>& convDefect, const vector<Point>& contours) {
     Moments mu;
 
     mu = moments( handContour, false );
     palmCenter = Point( mu.m10/mu.m00 , mu.m01/mu.m00 );
+    
+    if(convDefect.size() < 1 || contours.size() < 1)
+        return;
+    
+    vector<int> distFromPC; // distance from palm center
+    vector<Point> points;
+    
+    double mean = 0;
+    int pointCount = 0;
+    
+    vector<Vec4i>::const_iterator i;
+    for(i = convDefect.cbegin(); i != convDefect.cend(); ++i) {
+        const Vec4i& v = (*i);
+        Point p1( contours[v[0]] );
+        Point p2( contours[v[2]] );
+        Point p3( contours[v[1]] );
+        
+        double dist1 = pointDistance(palmCenter, p1);
+        points.push_back(p1);
+        distFromPC.push_back(dist1);
+        
+        double dist2 = pointDistance(palmCenter, p2);
+        points.push_back(p2);
+        distFromPC.push_back(dist2);
+        
+        double dist3 = pointDistance(palmCenter, p3);
+        points.push_back(p3);
+        distFromPC.push_back(dist3);
+        
+        pointCount += 3;
+        mean += dist1 + dist2 + dist3;
+    }
+    mean /= pointCount;
+    
+    pointCount = 0;
+    double radius = 0;
+    for(vector<int>::const_iterator i = distFromPC.cbegin(); i != distFromPC.cend(); ++i) {
+        if(*i < mean) {
+            radius += *i;
+            ++pointCount;
+        }
+    }
+    
+    radius /= pointCount;
+    
+    circle(rawFrame,palmCenter,radius,Scalar(200,255,100),8,8);
 }
 
 void putTextWrapper(Mat& img, const char* text, int x, int y) {
@@ -383,16 +429,10 @@ void findHandOrientation() {
         squares.push_back( std::pow( lItr->angle - mean , 2 ) ) ;
     std_dev = std::sqrt( std::accumulate( squares.begin( ) , squares.end( ) , 0 ) / squares.size( ) ) ;
     
-    cout<< "Finger Angle Mean: " << mean<< " StdDev: " << std_dev << endl;
-    
-    double minAngle = mean - 2 * std_dev,
-           maxAngle = mean + 2 * std_dev;
-    
-    std::sort(fingerLines.begin(), fingerLines.end(), lineAngleCompare);
-    for(lItr = fingerLines.begin(); lItr != fingerLines.end(); ++lItr){
-        if(lItr->angle < minAngle || lItr->angle > maxAngle)
-            lItr = fingerLines.erase(lItr) - 1;
-    }
+    int minAngle = ((int)(mean - std_dev)) % 360,
+        maxAngle = ((int)(mean + std_dev)) % 360;
+
+    cout<< "Finger Angle Mean: " << mean<< " StdDev: " << std_dev << " MinAngle: " << minAngle << " MaxAngle:" << maxAngle << endl;
 }
 
 void findFingerLines() {
