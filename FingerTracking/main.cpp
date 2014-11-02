@@ -60,6 +60,10 @@ int totalHandGravity = 0;
 
 std::string getImageType(int number);
 
+inline bool palmCenterDist (const Point* p1, const Point* p2) {
+    return (pointDistance(palmCenter, *p1) < pointDistance(palmCenter, *p2));
+}
+
 bool isFingerOnLeft(const Point& f1) {
     return f1.x < palmCenter.x;
 }
@@ -174,7 +178,7 @@ int main(int argc, char** argv) {
     namedWindow("Thresholded Frame");
     namedWindow("FG Mask MOG");
     
-    for(int keyboard=0;keyboard!=27 && cap.grab();keyboard = waitKey(20)) {
+    for(int keyboard=0;keyboard!=27 && cap.grab();keyboard = waitKey(0)) {
         cap >> rawFrame;
         
         // when working with video files sometimes rawFrame becomes null
@@ -286,9 +290,9 @@ void filterConvexes(vector<Vec4i>& convDefect, const vector<Point>& contours, co
               p3( contours[v[2]]);
         int depth = v[3]/256;
         
-        if(depth < tolerance)
-            d = convDefect.erase(d);
-        else
+//        if(depth < tolerance)
+//            d = convDefect.erase(d);
+//        else
             ++d;
     }
 }
@@ -331,49 +335,34 @@ void findPalmCenter(const vector<Vec4i>& convDefect, const vector<Point>& contou
     
     if(convDefect.size() < 1 || contours.size() < 1)
         return;
+   
     
-    vector<int> distFromPC; // distance from palm center
-    vector<Point> points;
-    
-    double mean = 0;
-    int pointCount = 0;
-    
+    vector<const Point*> points;
     vector<Vec4i>::const_iterator i;
     for(i = convDefect.cbegin(); i != convDefect.cend(); ++i) {
         const Vec4i& v = (*i);
-        Point p1( contours[v[0]] );
-        Point p2( contours[v[2]] );
-        Point p3( contours[v[1]] );
-        
-        double dist1 = pointDistance(palmCenter, p1);
-        points.push_back(p1);
-        distFromPC.push_back(dist1);
-        
-        double dist2 = pointDistance(palmCenter, p2);
-        points.push_back(p2);
-        distFromPC.push_back(dist2);
-        
-        double dist3 = pointDistance(palmCenter, p3);
-        points.push_back(p3);
-        distFromPC.push_back(dist3);
-        
-        pointCount += 3;
-        mean += dist1 + dist2 + dist3;
+        points.push_back( &contours[v[0]]);
+        points.push_back( &contours[v[1]]);
+        points.push_back( &contours[v[2]]);
     }
+
+    std::sort(points.begin(),points.end(),palmCenterDist);
+    
+    int pointCount = 0;
+    int mean = 0;
+    for(vector<const Point*>::iterator i = points.begin(); i != points.end(); ++i) {
+        int newDist = pointDistance(palmCenter, **i);
+        if(mean != 0 && abs(newDist - mean/pointCount) > handBoundingRect.height/10)
+            break;
+
+        mean += newDist;
+        ++pointCount;
+    }
+    
     mean /= pointCount;
-    
-    pointCount = 0;
-    double radius = 0;
-    for(vector<int>::const_iterator i = distFromPC.cbegin(); i != distFromPC.cend(); ++i) {
-        if(*i < mean) {
-            radius += *i;
-            ++pointCount;
-        }
+    if(mean > 0) {
+        circle(rawFrame,palmCenter,mean,Scalar(200,255,100),8,8);
     }
-    
-    radius /= pointCount;
-    
-    circle(rawFrame,palmCenter,radius,Scalar(200,255,100),8,8);
 }
 
 void putTextWrapper(Mat& img, const char* text, int x, int y) {
