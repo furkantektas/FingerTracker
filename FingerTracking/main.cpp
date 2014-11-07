@@ -237,9 +237,9 @@ void findConvexHull(const Mat& img, Mat& drawingFrame){
         convexityDefects(contours[handInd], handHullI, handConvDefect);
     }
     
-   
-    filterConvexes(handConvDefect, contours[handInd], handBoundingRect);
+
     findPalmCenter(handConvDefect, contours[handInd]);
+    filterConvexes(handConvDefect, contours[handInd], handBoundingRect);
     findFingerPoints(handConvDefect, contours[handInd], handBoundingRect);
     findFingerLines();
     findHandOrientation();
@@ -249,6 +249,10 @@ void findConvexHull(const Mat& img, Mat& drawingFrame){
     drawFingerLines(drawingFrame);
     drawConvexity(drawingFrame, handConvDefect, contours[handInd]);
     rectangle(drawingFrame, handBoundingRect.tl(), handBoundingRect.br(), blue);
+
+    for(int i=0;i<handPolygon.size();++i) {
+        line(drawingFrame,handPolygon[i], handPolygon[(i+1) % handPolygon.size()],Scalar(80,140,200), 2 );
+    }
     return;
 }
 
@@ -283,46 +287,51 @@ void filterConvexes(vector<Vec4i>& convDefect, const vector<Point>& contours, co
     int tolerance =  boundingRect.height/8;
     vector<Vec4i>::iterator d = convDefect.begin();
 
+    int maxDegree = 95;
     while( d!=convDefect.end() ) {
         Vec4i& v = (*d);
         Point p1( contours[v[0]]),
               p2( contours[v[1]]),
               p3( contours[v[2]]);
         int depth = v[3]/256;
-        
-//        if(depth < tolerance)
-//            d = convDefect.erase(d);
-//        else
+        int angleBetween = abs(getLineAngle(p1, p3) - getLineAngle(p2, p3));
+        if(depth < tolerance || angleBetween > maxDegree)
+            d = convDefect.erase(d);
+        else
             ++d;
     }
 }
 
 void findFingerPoints(const vector<Vec4i>& convDefect, const vector<Point>& contours, const Rect& boundingRect) {
-    int fingerTolerance = 20;
+    int handRectDiagonalLength = sqrt(boundingRect.width*boundingRect.width+boundingRect.height*boundingRect.height);
+    int distanceTolerance = handRectDiagonalLength/5;
+    int minFingerAffinity = handRectDiagonalLength/10;
     
-    if(convDefect.size() < 2)
+    if(convDefect.size() < 2 || handPolygon.size() < 3)
         return;
     
     fingers.clear();
-    vector<Point>::const_iterator pi = handPolygon.cbegin();
-    while(pi!=handPolygon.cend()) {
+
+    for(vector<Point>::const_iterator pi = handPolygon.cbegin(); pi!=handPolygon.cend(); ++pi){
         const Point& p = (*pi);
-        vector<Vec4i>::const_iterator d = convDefect.cbegin();
-        while( d!=convDefect.cend()) {
+        for(vector<Vec4i>::const_iterator d = convDefect.cbegin(); d!=convDefect.cend(); ++d){
             const Vec4i& v = (*d);
             Point ptStart( contours[v[0]] );
             Point ptEnd( contours[v[1]] );
         
             int distanceStart = pointDistance(ptStart, p);
             int distanceEnd = pointDistance(ptEnd, p);
-            if((distanceStart < fingerTolerance || distanceEnd < fingerTolerance) &&
-               (pointPolygonTest(handContour, p, false) < 0.01)) {
-                if(std::find(fingers.cbegin(), fingers.cend(), p) == fingers.cend())
+            
+            if((distanceStart < distanceTolerance || distanceEnd < distanceTolerance)) {
+                // avoid detecting a finger multiple times
+                bool isFound = false;
+                for(vector<Point>::const_iterator fi = fingers.cbegin(); fi != fingers.cend() && !isFound; ++fi) {
+                    isFound = isFound || (pointDistance(p,*fi) < minFingerAffinity);
+                }
+                if(!isFound)
                     fingers.push_back(p);
             }
-            ++d;
         }
-        ++pi;
     }
 
 }
@@ -417,14 +426,29 @@ void findHandOrientation() {
     mean /= fingerLines.size();
     
     std::vector<double> squares ;
-    for( lItr = fingerLines.begin(); lItr != fingerLines.end(); ++lItr)
-        squares.push_back( std::pow( lItr->angle - mean , 2 ) ) ;
+    double min = 360;
+    vector<Line>::iterator middle;
+    for( lItr = fingerLines.begin(); lItr != fingerLines.end(); ++lItr) {
+        double angle = lItr->angle - mean;
+        squares.push_back( std::pow( angle , 2 ) ) ;
+        if(angle < min) {
+            min = angle;
+            middle = lItr;
+        }
+    }
     std_dev = std::sqrt( std::accumulate( squares.begin( ) , squares.end( ) , 0 ) / squares.size( ) ) ;
     
-    int minAngle = ((int)(mean - std_dev)) % 360,
-        maxAngle = ((int)(mean + std_dev)) % 360;
-
-    cout<< "Finger Angle Mean: " << mean<< " StdDev: " << std_dev << " MinAngle: " << minAngle << " MaxAngle:" << maxAngle << endl;
+    int minAngle = ((int)(mean - std_dev)),
+        maxAngle = ((int)(mean + std_dev));
+//
+//    cout<< "Finger Angle Mean: " << mean<< " StdDev: " << std_dev << " MinAngle: " << minAngle << " MaxAngle:" << maxAngle << endl;
+//    
+//    for( lItr = fingerLines.begin(); lItr != fingerLines.end(); ++lItr) {
+//        if(lItr->angle < minAngle || lItr->angle > maxAngle)
+//            lItr = fingerLines.erase(lItr) - 1;
+//    }
+//    
+//    circle(rawFrame,middle->end,10,Scalar(50,50,50),10);
 }
 
 void findFingerLines() {
