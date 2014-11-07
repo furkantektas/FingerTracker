@@ -19,6 +19,9 @@ enum Hand_e{
     RIGHT
 };
 
+int windowHeight = 0;
+int windowWidth = 0;
+
 const Scalar red(255,0,0);
 const Scalar green(0,255,0);
 const Scalar blue(0,0,255);
@@ -164,7 +167,14 @@ void getCameraInfo(VideoCapture m_cam){
     cout << "Input codec type: " << EXT << endl;
 }
 
+void displayFPS(Mat&frame, double fps) {
+    char buf[20];
+    sprintf(buf, "%.2f FPS",fps);
+    putTextWrapper(rawFrame, buf,windowWidth-100);
+}
+
 int main(int argc, char** argv) {
+//    VideoCapture cap("/Users/ft/Development/FingerTracking/FingerTracking/hand2.mov");
     VideoCapture cap(0);
     if(!cap.isOpened()) // check if we succeeded
         return -1;
@@ -173,12 +183,16 @@ int main(int argc, char** argv) {
     cap.set(CV_CAP_PROP_AUTO_EXPOSURE, 0 );
     cap.set(CV_CAP_PROP_GAIN, 0.0);
     
+    windowWidth = cap.get(CV_CAP_PROP_FRAME_WIDTH);
+    windowHeight = cap.get(CV_CAP_PROP_FRAME_HEIGHT);
+    
     getCameraInfo(cap);
     //create GUI windows
     namedWindow("Thresholded Frame");
     namedWindow("FG Mask MOG");
-    
-    for(int keyboard=0;keyboard!=27 && cap.grab();keyboard = waitKey(0)) {
+
+    for(int keyboard=0;keyboard!=27 && cap.grab();keyboard = waitKey(1)) {
+        double t = (double)cv::getTickCount();
         cap >> rawFrame;
         
         // when working with video files sometimes rawFrame becomes null
@@ -188,11 +202,14 @@ int main(int argc, char** argv) {
             process_frame(thresh_frame);
         
             findConvexHull(thresh_frame,rawFrame);
-        
-            imshow("Thresholded Frame", thresh_frame);
-            imshow("FG Mask MOG", rawFrame);
-            refresh();
         }
+        // calculating elapsed time in sec
+        t = ((double)cv::getTickCount() - t) / cv::getTickFrequency();
+        displayFPS(rawFrame,1.0/t);
+
+        imshow("Thresholded Frame", thresh_frame);
+        imshow("FG Mask MOG", rawFrame);
+        refresh();
     }
     
     thresh_frame.release();
