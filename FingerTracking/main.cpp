@@ -19,7 +19,7 @@ int main(int argc, char** argv) {
     VideoCapture cap(0);
     if(!cap.isOpened()) // check if we succeeded
         return -1;
-    
+    CommonUtils::setCameraResolution(cap, 320, 240);
     cap.set(CV_CAP_PROP_EXPOSURE, 0.0);
     cap.set(CV_CAP_PROP_AUTO_EXPOSURE, 0 );
     cap.set(CV_CAP_PROP_GAIN, 0.0);
