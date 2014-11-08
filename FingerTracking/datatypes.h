@@ -22,10 +22,4 @@ enum Hand_e{
     RIGHT
 };
 
-
-const cv::Scalar red(255,0,0);
-const cv::Scalar green(0,255,0);
-const cv::Scalar blue(0,0,255);
-const cv::Scalar yellow(255,255,0);
-
 #endif
