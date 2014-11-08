@@ -8,22 +8,27 @@
 
 #include "common_utils.h"
 
-void CommonUtils::printCameraInfo(cv::VideoCapture m_cam){
-    std::cout<<"CV_CAP_PROP_FRAME_WIDTH " << m_cam.get(CV_CAP_PROP_FRAME_WIDTH) << std::endl;
-    std::cout<<"CV_CAP_PROP_FRAME_HEIGHT " << m_cam.get(CV_CAP_PROP_FRAME_HEIGHT) << std::endl;
-    std::cout<<"CV_CAP_PROP_FPS " << m_cam.get(CV_CAP_PROP_FPS) << std::endl;
-    std::cout<<"CV_CAP_PROP_EXPOSURE " << m_cam.get(CV_CAP_PROP_EXPOSURE) << std::endl;
-    std::cout<<"CV_CAP_PROP_FORMAT " << m_cam.get(CV_CAP_PROP_FORMAT) << std::endl; //deafult CV_8UC3?!
-    std::cout<<"CV_CAP_PROP_CONTRAST " << m_cam.get(CV_CAP_PROP_CONTRAST) << std::endl;
-    std::cout<<"CV_CAP_PROP_BRIGHTNESS "<< m_cam.get(CV_CAP_PROP_BRIGHTNESS) << std::endl;
-    std::cout<<"CV_CAP_PROP_SATURATION "<< m_cam.get(CV_CAP_PROP_SATURATION) << std::endl;
-    std::cout<<"CV_CAP_PROP_HUE "<< m_cam.get(CV_CAP_PROP_HUE) << std::endl;
-    std::cout<<"CV_CAP_PROP_POS_FRAMES "<< m_cam.get(CV_CAP_PROP_POS_FRAMES) << std::endl;
-    std::cout<<"CV_CAP_PROP_FOURCC "<< m_cam.get(CV_CAP_PROP_FOURCC) << std::endl;
+void CommonUtils::printCameraInfo(cv::VideoCapture cam){
+    std::cout<<"CV_CAP_PROP_FRAME_WIDTH " << cam.get(CV_CAP_PROP_FRAME_WIDTH) << std::endl;
+    std::cout<<"CV_CAP_PROP_FRAME_HEIGHT " << cam.get(CV_CAP_PROP_FRAME_HEIGHT) << std::endl;
+    std::cout<<"CV_CAP_PROP_FPS " << cam.get(CV_CAP_PROP_FPS) << std::endl;
+    std::cout<<"CV_CAP_PROP_EXPOSURE " << cam.get(CV_CAP_PROP_EXPOSURE) << std::endl;
+    std::cout<<"CV_CAP_PROP_FORMAT " << cam.get(CV_CAP_PROP_FORMAT) << std::endl; //deafult CV_8UC3?!
+    std::cout<<"CV_CAP_PROP_CONTRAST " << cam.get(CV_CAP_PROP_CONTRAST) << std::endl;
+    std::cout<<"CV_CAP_PROP_BRIGHTNESS "<< cam.get(CV_CAP_PROP_BRIGHTNESS) << std::endl;
+    std::cout<<"CV_CAP_PROP_SATURATION "<< cam.get(CV_CAP_PROP_SATURATION) << std::endl;
+    std::cout<<"CV_CAP_PROP_HUE "<< cam.get(CV_CAP_PROP_HUE) << std::endl;
+    std::cout<<"CV_CAP_PROP_POS_FRAMES "<< cam.get(CV_CAP_PROP_POS_FRAMES) << std::endl;
+    std::cout<<"CV_CAP_PROP_FOURCC "<< cam.get(CV_CAP_PROP_FOURCC) << std::endl;
     
-    int ex = static_cast<int>(m_cam.get(CV_CAP_PROP_FOURCC));     // Get Codec Type- Int form
+    int ex = static_cast<int>(cam.get(CV_CAP_PROP_FOURCC));     // Get Codec Type- Int form
     char EXT[] = {(char)(ex & 255) , (char)((ex & 0XFF00) >> 8),(char)((ex & 0XFF0000) >> 16),(char)((ex & 0XFF000000) >> 24), 0};
     std::cout << "Input codec type: " << EXT << std::endl;
+}
+
+void CommonUtils::setCameraResolution(cv::VideoCapture cam, int width, int height) {
+    cam.set(CV_CAP_PROP_FRAME_WIDTH, width);
+    cam.set(CV_CAP_PROP_FRAME_HEIGHT, height);
 }
 
 void CommonUtils::displayFPS(cv::Mat& frame, double fps, int x_pos) {

@@ -13,7 +13,8 @@
 #include <opencv2/opencv.hpp>
 class CommonUtils{
     public:
-        static void printCameraInfo(cv::VideoCapture m_cam);
+        static void printCameraInfo(cv::VideoCapture cam);
+        static void setCameraResolution(cv::VideoCapture cam, int width, int height);
         static void putTextWrapper(cv::Mat& img, const char* text, int x=10, int y=30);
         static void displayFPS(cv::Mat&frame, double fps, int x_pos);
         static std::string getImageType(int number);
