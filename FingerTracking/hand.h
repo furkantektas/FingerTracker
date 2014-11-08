@@ -10,6 +10,7 @@
 #define __FingerTracking__hand__
 
 #include <opencv2/opencv.hpp>
+#include <list>
 #include "common_utils.h"
 #include "datatypes.h"
 
@@ -24,39 +25,41 @@ public:
 private:
     Mat& mFrame;
     Mat mThreshFrame;
-    vector<Line> fingerLines;
+    std::list<Line> fingerLines;
     vector<Point> handPolygon;
     vector<Point> handContour;
-    vector<Point> fingers;
+    std::list<Point> fingers;
     Point palmCenter;
     Rect handBoundingRect;
+    vector<Vec4i> handConvDefect;
     enum Hand_e hand;
     const Point* labeledFingers[5];
     int frameCount = 0;
     int totalHandGravity = 0;
-    
-    void findConvexHull(const Mat& img, Mat& drawingFrame);
+    void deleteFinger(const Point& finger);
+    void findConvexHull();
     bool fingerDistanceComparator(const Point& f1, const Point& f2);
-    
-    int findLargestContour(const vector<vector<Point>>& contours) const;
-    void filterConvexes(vector<Vec4i>& convDefect, const vector<Point>& contours, const Rect& boundingRect);
+    void drawHandPolygon() const;
+
+    void filterConvexes();
     void filterFingers();
-    void findFingerPoints(const vector<Vec4i>& convDefect, const vector<Point>& contours, const Rect& boundingRect);
-    void findPalmCenter(const vector<Vec4i>& convDefect, const vector<Point>& contours);
+    void findFingerPoints();
+    void findPalmCenter();
+    void addFinger(const Point& finger);
     
-    
-    void printFingerCount(Mat& img, int fingerCount) const;
-    bool isHand(const vector<Point>& contours, const vector<Vec4i>& convDefect) const;
-    void drawConvexity(Mat& drawing, const vector<Vec4i>& convDefect, const vector<Point>& contours) const;
+    void printFingerCount(int fingerCount) const;
+    bool isHand() const;
+    void drawConvexity() const;
     void findHandOrientation();
     void findFingerLines();
-    void drawFingerLines(Mat& drawing) const;
+    void drawFingerLines() const;
     void findWhichHand();
     bool isFingerOnLeft(const Point& f1) const;
     bool isFingerOnTop(const Point& f1) const;
     float fingerDistanceFromPalmCenter(const Point& f) const;
     bool palmCenterDistComparator (const Point* p1, const Point* p2) const;
-    bool lineAngleCompare(const Line& l1, const Line& l2) const;
-
+    
+    static bool lineAngleCompare(const Line& l1, const Line& l2);
+    static int findLargestContour(const vector<vector<Point>>& contours);
 };
 #endif /* defined(__FingerTracking__hand__) */
