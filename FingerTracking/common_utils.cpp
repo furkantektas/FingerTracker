@@ -80,3 +80,17 @@ void CommonUtils::putTextWrapper(cv::Mat& img, const char* text, int x, int y) {
     cv::Point textOrg(x,y);
     cv::putText(img, text, textOrg, fontFace, fontScale, cv::Scalar::all(255), thickness,8);
 }
+
+float CommonUtils::pointDistance(const cv::Point& a, const cv::Point& b){
+    int dx = a.x - b.x;
+    int dy = a.y - b.y;
+    return sqrt(dx*dx + dy*dy);
+}
+
+float CommonUtils::getLineAngle(const cv::Point& p1, const cv::Point& p2){
+    double dy = p1.y - p2.y;
+    double dx = p1.x - p2.x;
+    double theta = atan2(dy, dx);
+    theta = theta*180/CV_PI + 180; // rads to degs
+    return theta;
+}

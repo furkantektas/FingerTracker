@@ -13,16 +13,16 @@ void Hand::setFrame(Mat& frame) {
     mFrame = frame;
 }
 
-bool Hand::isFingerOnLeft(const Point& f1) {
+bool Hand::isFingerOnLeft(const Point& f1) const {
     return f1.x < palmCenter.x;
 }
 
-bool Hand::isFingerOnTop(const Point& f1) {
+bool Hand::isFingerOnTop(const Point& f1) const {
     return f1.y < palmCenter.y;
 }
 
-float Hand::fingerDistanceFromPalmCenter(const Point& f) {
-    return pointDistance(f, palmCenter);
+float Hand::fingerDistanceFromPalmCenter(const Point& f) const {
+    return CommonUtils::pointDistance(f, palmCenter);
 }
 
 void Hand::findWhichHand() {
@@ -36,7 +36,7 @@ void Hand::findWhichHand() {
     // constraint: thumb should be the farthest finger from palm center
     // TODO: check thumb's position
     while(fItr != fingers.cend()) {
-        int distance = pointDistance(palmCenter, *fItr);
+        int distance = CommonUtils::pointDistance(palmCenter, *fItr);
         if(distance > maxDist) {
             maxDist = distance;
             farthestFinger = &(*fItr);
@@ -156,21 +156,7 @@ void Hand::findConvexHull(const Mat& img, Mat& drawingFrame){
     return;
 }
 
-float Hand::pointDistance(const Point& a, const Point& b){
-    int dx = a.x - b.x;
-    int dy = a.y - b.y;
-    return sqrt(dx*dx + dy*dy);
-}
-
-float Hand::getLineAngle(const Point& p1, const Point& p2){
-    double dy = p1.y - p2.y;
-    double dx = p1.x - p2.x;
-    double theta = atan2(dy, dx);
-    theta = theta*180/CV_PI + 180; // rads to degs
-    return theta;
-}
-
-int Hand::findLargestContour(const vector<vector<Point>>& contours) {
+int Hand::findLargestContour(const vector<vector<Point>>& contours) const {
     int largest_contour_index = -1;
     double largest_area = 0;
     for(int i = 0; i < contours.size(); i++) {
@@ -194,7 +180,7 @@ void Hand::filterConvexes(vector<Vec4i>& convDefect, const vector<Point>& contou
         p2( contours[v[1]]),
         p3( contours[v[2]]);
         int depth = v[3]/256;
-        int angleBetween = abs(getLineAngle(p1, p3) - getLineAngle(p2, p3));
+        int angleBetween = abs(CommonUtils::getLineAngle(p1, p3) - CommonUtils::getLineAngle(p2, p3));
         if(depth < tolerance || angleBetween > maxDegree)
             d = convDefect.erase(d);
         else
@@ -219,14 +205,14 @@ void Hand::findFingerPoints(const vector<Vec4i>& convDefect, const vector<Point>
             Point ptStart( contours[v[0]] );
             Point ptEnd( contours[v[1]] );
             
-            int distanceStart = pointDistance(ptStart, p);
-            int distanceEnd = pointDistance(ptEnd, p);
+            int distanceStart = CommonUtils::pointDistance(ptStart, p);
+            int distanceEnd = CommonUtils::pointDistance(ptEnd, p);
             
             if((distanceStart < distanceTolerance || distanceEnd < distanceTolerance)) {
                 // avoid detecting a finger multiple times
                 bool isFound = false;
                 for(vector<Point>::const_iterator fi = fingers.cbegin(); fi != fingers.cend() && !isFound; ++fi) {
-                    isFound = isFound || (pointDistance(p,*fi) < minFingerAffinity);
+                    isFound = isFound || (CommonUtils::pointDistance(p,*fi) < minFingerAffinity);
                 }
                 if(!isFound)
                     fingers.push_back(p);
@@ -236,8 +222,8 @@ void Hand::findFingerPoints(const vector<Vec4i>& convDefect, const vector<Point>
     
 }
 
-bool Hand::palmCenterDistComparator (const Point* p1, const Point* p2) {
-    return (pointDistance(palmCenter, *p1) < pointDistance(palmCenter, *p2));
+bool Hand::palmCenterDistComparator (const Point* p1, const Point* p2) const {
+    return (CommonUtils::pointDistance(palmCenter, *p1) < CommonUtils::pointDistance(palmCenter, *p2));
 }
 
 
@@ -266,7 +252,7 @@ void Hand::findPalmCenter(const vector<Vec4i>& convDefect, const vector<Point>& 
     int pointCount = 0;
     int mean = 0;
     for(vector<const Point*>::iterator i = points.begin(); i != points.end(); ++i) {
-        int newDist = pointDistance(palmCenter, **i);
+        int newDist = CommonUtils::pointDistance(palmCenter, **i);
         if(mean != 0 && abs(newDist - mean/pointCount) > handBoundingRect.height/10)
             break;
         
@@ -280,17 +266,17 @@ void Hand::findPalmCenter(const vector<Vec4i>& convDefect, const vector<Point>& 
     }
 }
 
-void Hand::printFingerCount(Mat& img, int fingerCount) {
+void Hand::printFingerCount(Mat& img, int fingerCount) const {
     char c[255];
     sprintf(c,"Finger #%d Hand: %s", fingerCount, (hand == LEFT) ? "LEFT" : "RIGHT");
     CommonUtils::putTextWrapper(img, c);
 }
 
-bool Hand::isHand(const vector<Point>& contours, const vector<Vec4i>& convDefect) {
+bool Hand::isHand(const vector<Point>& contours, const vector<Vec4i>& convDefect) const {
     return true;
 }
 
-void Hand::drawConvexity(Mat& drawing, const vector<Vec4i>& convDefect, const vector<Point>& contours) {
+void Hand::drawConvexity(Mat& drawing, const vector<Vec4i>& convDefect, const vector<Point>& contours) const {
     vector<Vec4i>::const_iterator d = convDefect.cbegin();
     while( d!=convDefect.cend() ) {
         const Vec4i& v=(*d);
@@ -308,7 +294,7 @@ void Hand::drawConvexity(Mat& drawing, const vector<Vec4i>& convDefect, const ve
     }
 }
 
-bool Hand::lineAngleCompare(const Line& l1, const Line& l2) {
+bool Hand::lineAngleCompare(const Line& l1, const Line& l2) const {
     return l1.angle < l2.angle;
 }
 
@@ -336,8 +322,8 @@ void Hand::findHandOrientation() {
     }
     std_dev = std::sqrt( std::accumulate( squares.begin( ) , squares.end( ) , 0 ) / squares.size( ) ) ;
     
-    int minAngle = ((int)(mean - std_dev)),
-    maxAngle = ((int)(mean + std_dev));
+//    int minAngle = ((int)(mean - std_dev)),
+//    maxAngle = ((int)(mean + std_dev));
     //
     //    cout<< "Finger Angle Mean: " << mean<< " StdDev: " << std_dev << " MinAngle: " << minAngle << " MaxAngle:" << maxAngle << endl;
     //
@@ -361,15 +347,15 @@ void Hand::findFingerLines() {
     vector<Point>::const_iterator v = fingers.cbegin();
     while(v!=fingers.cend()) {
         const Point& endPoint = (*v);
-        fingerLines.push_back(Line{palmCenter, endPoint, getLineAngle(endPoint, palmCenter)});
+        fingerLines.push_back(Line{palmCenter, endPoint, CommonUtils::getLineAngle(endPoint, palmCenter)});
         ++v;
     }
 }
 
-void Hand::drawFingerLines(Mat& drawing) {
+void Hand::drawFingerLines(Mat& drawing) const {
     circle(drawing,palmCenter,20,red,40);
-    vector<Line>::iterator d = fingerLines.begin();
-    while( d!=fingerLines.end() ) {
+    vector<Line>::const_iterator d = fingerLines.cbegin();
+    while( d!=fingerLines.cend() ) {
         const Line& l = (*d++);
         
         char buff[100];

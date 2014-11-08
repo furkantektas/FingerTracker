@@ -17,5 +17,7 @@ class CommonUtils{
         static void putTextWrapper(cv::Mat& img, const char* text, int x=10, int y=30);
         static void displayFPS(cv::Mat&frame, double fps, int x_pos);
         static std::string getImageType(int number);
+        static float pointDistance(const cv::Point& a, const cv::Point& b);
+        static float getLineAngle(const cv::Point& p1, const cv::Point& p2);
 };
 #endif /* defined(__FingerTracking__common_utils__) */
