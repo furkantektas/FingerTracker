@@ -113,8 +113,6 @@ void Hand::filterFingers() {
         double dist = fingerDistanceFromPalmCenter(*fItr);
         // removing fingers out of finger length range or those are on the edges
         if(dist < minFingerDist || dist > maxFingerDist || isFingerOnEdge(*fItr)) {
-            std::cout << " x " << (*fItr).x << " y " << (*fItr).y << " dist: " << dist<< " min: " << minFingerDist << " max: " << maxFingerDist << " isOnEdge " << isFingerOnEdge(*fItr) << std::endl;
-//            circle(mFrame,*fItr,12,RED,12);
             fItr = deleteFinger(fItr);
         }
     }
@@ -415,8 +413,7 @@ void Hand::findHandOrientation() {
     for(std::list<Line>::iterator lItr = fingerLines.begin(); lItr != fingerLines.end(); ++lItr) {
         int angle = abs(lItr->angle - middleFinger->angle);
         if(angle > tolerance) {
-//            deleteFinger(lItr->end);
-            circle(mFrame, lItr->end, 11, WHITE, 11);
+            deleteFinger(lItr->end);
         }
     }
     
