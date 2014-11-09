@@ -18,3 +18,7 @@ FingerTracking.xcodeproj/project.pbxproj
 FingerTracking/Hand2.m4v
 
 FingerTracking.xcodeproj/project.xcworkspace/xcshareddata/FingerTracking.xccheckout
+
+*.odt
+
+*.pdf
