@@ -32,6 +32,7 @@ private:
     vector<Point> handPolygon;
     vector<Point> handContour;
     std::list<Point> fingers;
+    const Line* middleFinger = 0;
     Point palmCenter;
     Rect handBoundingRect;
     vector<Vec4i> handConvDefect;
@@ -41,11 +42,13 @@ private:
     int totalHandGravity = 0;
     int frameWidth;
     int frameHeight;
+    int palmRadius = 0;
 
     void process_frame();
     void addFinger(const Point& finger);
     void deleteFinger(const Point& finger);
-
+    std::list<Point>::const_iterator deleteFinger(const std::list<Point>::const_iterator finger);
+    
     // Algorithm Functions
     void findConvexHull();
     void filterConvexes();
@@ -73,6 +76,6 @@ private:
     bool fingerDistanceComparator(const Point& f1, const Point& f2);
     bool isFingerOnLeft(const Point& f1) const;
     bool isFingerOnTop(const Point& f1) const;
-    bool isFingerOnEdge(const Point& finger) const;
+    bool isFingerOnEdge(const Point& finger, int tolerance = 5) const;
 };
 #endif /* defined(__FingerTracking__hand__) */
