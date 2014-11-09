@@ -17,8 +17,8 @@ int main(int argc, char** argv) {
     cap.set(CV_CAP_PROP_AUTO_EXPOSURE, 0 );
     cap.set(CV_CAP_PROP_GAIN, 0.0);
     
-    int frameHeight = cap.get(CV_CAP_PROP_FRAME_WIDTH);
-    int frameWidth = cap.get(CV_CAP_PROP_FRAME_HEIGHT);
+    int frameWidth = cap.get(CV_CAP_PROP_FRAME_WIDTH);
+    int frameHeight = cap.get(CV_CAP_PROP_FRAME_HEIGHT);
     
     CommonUtils::printCameraInfo(cap);
 
@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
 
             // calculating elapsed time in sec
             t = ((double)cv::getTickCount() - t) / cv::getTickFrequency();
-            CommonUtils::displayFPS(frame,1.0/t,frameWidth*0.95);
+            CommonUtils::displayFPS(frame,1.0/t,frameWidth*0.75);
             
             imshow("Hand Frame", frame);
             imshow("Raw Frame", rawFrame);
