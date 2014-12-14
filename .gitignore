@@ -22,3 +22,7 @@ FingerTracking.xcodeproj/project.xcworkspace/xcshareddata/FingerTracking.xccheck
 *.odt
 
 *.pdf
+
+*.o
+
+FingerTracking.xcodeproj/project.xcworkspace/xcuserdata/ft.xcuserdatad/WorkspaceSettings.xcsettings
