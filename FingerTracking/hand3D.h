@@ -18,6 +18,8 @@ public:
     }
     void setFrames(Mat& frameLeft, Mat& frameRight);
     void find();
+    std::vector<Point2f> getLeftFingers() const;
+    std::vector<Point2f> getRightFingers() const;
     ~Hand3D();
 private:
     Calibration& calibration;
@@ -25,7 +27,7 @@ private:
     HandDetection leftHand, rightHand;
     Mat scene;
     const char* windowNameStereo = "Stereo";
-    const char* windowName3D = "3D";
+    const char* windowName3D = "Reprojection of 3D";
 };
 
 #endif

@@ -22,7 +22,7 @@ public:
     void find();
     void setFrame(Mat& frame);
     void refresh();
-    std::list<Point2f> getFingers() const;
+    std::vector<Point2f> getFingers() const;
     const Point& getPalmCenter() const;
     int getFingerCount() const;
     Mat& getFrame();
@@ -32,7 +32,7 @@ private:
     std::list<Line> fingerLines;
     vector<Point> handPolygon;
     vector<Point> handContour;
-    std::list<Point2f> fingers;
+    std::vector<Point2f> fingers;
     const Line* middleFinger = 0;
     Point palmCenter;
     Rect handBoundingRect;
@@ -48,7 +48,7 @@ private:
     void process_frame();
     void addFinger(const Point2f& finger);
     void deleteFinger(const Point2f& finger);
-    std::list<Point2f>::const_iterator deleteFinger(const std::list<Point2f>::const_iterator finger);
+    std::vector<Point2f>::const_iterator deleteFinger(const std::vector<Point2f>::const_iterator finger);
     
     // Algorithm Functions
     void findConvexHull();
@@ -71,6 +71,7 @@ private:
     // Helper functions
     float fingerDistanceFromPalmCenter(const Point& f) const;
     static bool lineAngleCompare(const Line& l1, const Line& l2);
+    static bool fingerCompare(const Point2f& f1, const Point2f& f2);
     static int findLargestContour(const vector<vector<Point>>& contours);
     bool palmCenterDistComparator (const Point* p1, const Point* p2) const;
     bool isHand() const;

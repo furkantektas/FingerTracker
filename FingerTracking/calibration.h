@@ -10,7 +10,7 @@
 //#include <opencv2/imgcodecs/imgcodecs.hpp>
 #include <iostream>
 
-#define timeGap 100000000U
+#define timeGap 250000000U
 
 using namespace cv;
 using namespace std;

@@ -7,10 +7,19 @@ Hand3D::~Hand3D() {
     destroyWindow(windowName3D);
 }
 
+std::vector<Point2f> Hand3D::getLeftFingers() const {
+    return leftHand.getFingers();
+}
+
+std::vector<Point2f> Hand3D::getRightFingers() const {
+    return rightHand.getFingers();
+};
+
 void Hand3D::setFrames(Mat& frameLeft, Mat& frameRight) {
     leftHand.setFrame(frameLeft);
     rightHand.setFrame(frameRight);
-    imshow(windowNameStereo, frameLeft);
+    scene = frameLeft.clone();
+    imshow(windowNameStereo, scene);
 }
 
 void Hand3D::find() {
@@ -27,14 +36,12 @@ void Hand3D::find() {
 
         cerr << "Begin left fingers" << endl;
 
-        list<Point2f> leftFingerList = leftHand.getFingers();
-        std::vector<Point2f> left{ std::begin(leftFingerList), std::end(leftFingerList) };
+        std::vector<Point2f> left = leftHand.getFingers();
 
 
         cerr << "Begin right fingers" << endl;
 
-        list<Point2f> rightFingerList = rightHand.getFingers();
-        std::vector<Point2f> right{ std::begin(rightFingerList), std::end(rightFingerList) };
+        std::vector<Point2f> right = rightHand.getFingers();
 
 
         for(vector<Point2f>::const_iterator it = left.cbegin();
@@ -80,6 +87,7 @@ void Hand3D::find() {
         cv::Mat tvec(1,3,cv::DataType<double>::type);
         cv::Mat rotationMatrix(3,3,cv::DataType<double>::type);
 
+
         cerr << "begin solvepnp" << endl;
         if(solvePnP(resultPoints, left, calibration.getCameraMatrix1(), calibration.getDistCoeffs1(), rvec, tvec,  false, CV_EPNP)) {
             cerr << "rvec" << rvec << endl;
@@ -90,16 +98,16 @@ void Hand3D::find() {
             vector<cv::Point2f> proj;
 
             cerr << "begin projectpoints" << endl;
-            projectPoints(resultPoints, calibration.getR(),calibration.getT(),calibration.getCameraMatrix1()
+            projectPoints(resultPoints, rvec,tvec,calibration.getCameraMatrix1()
                           ,calibration.getDistCoeffs1(), proj);
+            cerr << "Proj:" << proj << endl;
             cerr << "begin circle" << endl;
-            Mat reproj_canvas(leftHand.getFrame());
+
             for(size_t i=0; i<proj.size(); i++){
-                Point2f pt = proj[i];
-                circle(reproj_canvas, pt, 5, Scalar(255, 0, 0), 3);
+                circle(scene, proj[i], 5, Scalar(255, 255, 255), 5);
             }
             cerr << "begin imshow" << endl;
-            imshow(windowName3D, reproj_canvas);
+            imshow(windowName3D, scene);
         }
     };
 

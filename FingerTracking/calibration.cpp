@@ -71,12 +71,7 @@ void Calibration::calibrateStereoCamera() {
                                  cameraMatrix[0], distCoeffs[0],
                                  cameraMatrix[1], distCoeffs[1],
                                  imageSize, R, T, E, F,
-                                 TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 100, 1e-5),
-                                 CALIB_FIX_ASPECT_RATIO +
-                                 CALIB_ZERO_TANGENT_DIST +
-                                 CALIB_SAME_FOCAL_LENGTH +
-                                 CALIB_RATIONAL_MODEL +
-                                 CALIB_FIX_K3 + CALIB_FIX_K4 + CALIB_FIX_K5 );
+                                 TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 100, 1e-5), CALIB_FIX_K4 + CALIB_FIX_K5 );
     cout<<"Stereo calibraton done. RMS Error: "<<rms<<"\n";
 
     Mat RT = Mat::zeros(3, 4, cameraMatrix[0].type());
@@ -146,7 +141,7 @@ int Calibration::calibrate(VideoCapture camLeft, VideoCapture camRight) {
         _leftOri.copyTo(copyImageLeft);
         _rightOri.copyTo(copyImageRight);
         foundCornersInBothImage = findChessBoard();
-        if (foundCornersInBothImage && stereoPairIndex<14) {
+        if (foundCornersInBothImage && stereoPairIndex<noOfStereoPairs) {
             int64 thisTick = getTickCount();
             int64 diff = thisTick - prevTickCount;
             if (goIn==1 || diff >= timeGap) {
@@ -161,7 +156,7 @@ int Calibration::calibrate(VideoCapture camLeft, VideoCapture camRight) {
             return 0;
         }
         
-        if(stereoPairIndex == 14)
+        if(stereoPairIndex == noOfStereoPairs)
             break;
     }
     mode = CALIBRATING;

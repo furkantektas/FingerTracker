@@ -15,7 +15,7 @@ void HandDetection::setFrame(Mat& frame) {
     refresh();
 }
 
-std::list<Point2f> HandDetection::getFingers() const {
+std::vector<Point2f> HandDetection::getFingers() const {
     return fingers;
 }
 
@@ -52,7 +52,7 @@ void HandDetection::findWhichHand() {
     
     // constraint: thumb should be the farthest finger from palm center
     // TODO: check thumb's position
-    for(std::list<Point2f>::const_iterator fItr = fingers.cbegin(); fItr != fingers.cend(); ++fItr) {
+    for(std::vector<Point2f>::const_iterator fItr = fingers.cbegin(); fItr != fingers.cend(); ++fItr) {
         int distance = CommonUtils::pointDistance(palmCenter, *fItr);
         if(distance > maxDist) {
             maxDist = distance;
@@ -87,25 +87,31 @@ void HandDetection::filterFingers() {
     
     if(fingers.size() < 3) {
         // removing fingers on the edges
-        for(std::list<Point2f>::const_iterator fItr = fingers.cbegin(); fItr != fingers.cend(); ++fItr)
+        for(std::vector<Point2f>::const_iterator fItr = fingers.cbegin(); fItr != fingers.cend(); ) {
             if(isFingerOnEdge(*fItr))
                 fItr = deleteFinger(fItr);
+            else
+                ++fItr;
+        }
 
         // remove the finger close to edge
         if(fingers.size() == 2) {
-            for(std::list<Point2f>::const_iterator fItr = fingers.cbegin(); fItr != fingers.cend(); ++fItr)
+            for(std::vector<Point2f>::const_iterator fItr = fingers.cbegin(); fItr != fingers.cend();) {
                 if(isFingerOnEdge(*fItr,frameWidth/4))
                     fItr = deleteFinger(fItr);
+                else
+                    ++fItr;
+            }
         }
         return;
     }
     
-    for(std::list<Point2f>::const_iterator fItr = fingers.begin(); fItr != fingers.end(); ++fItr)
+    for(std::vector<Point2f>::const_iterator fItr = fingers.begin(); fItr != fingers.end(); ++fItr)
         mean += fingerDistanceFromPalmCenter(*fItr);
     mean /= fingers.size();
     
     std::vector<double> squares ;
-    for(std::list<Point2f>::const_iterator fItr = fingers.cbegin(); fItr != fingers.cend(); ++fItr)
+    for(std::vector<Point2f>::const_iterator fItr = fingers.cbegin(); fItr != fingers.cend(); ++fItr)
         squares.push_back( std::pow( fingerDistanceFromPalmCenter(*fItr) - mean , 2 ) ) ;
     std_dev = std::sqrt( std::accumulate( squares.begin( ) , squares.end( ) , 0 ) / squares.size( ) ) ;
     
@@ -113,12 +119,13 @@ void HandDetection::filterFingers() {
     maxFingerDist = mean + 2 * std_dev;
     
     // filtering fingers
-    for(std::list<Point2f>::const_iterator fItr = fingers.cbegin(); fItr != fingers.cend(); ++fItr) {
+    for(std::vector<Point2f>::const_iterator fItr = fingers.cbegin(); fItr != fingers.cend();) {
         double dist = fingerDistanceFromPalmCenter(*fItr);
         // removing fingers out of finger length range or those are on the edges
         if(dist < minFingerDist || dist > maxFingerDist || isFingerOnEdge(*fItr)) {
             fItr = deleteFinger(fItr);
-        }
+        } else
+            ++fItr;
     }
 }
 
@@ -154,16 +161,17 @@ void HandDetection::find() {
     filterFingers();
     findHandOrientation();
 //    findWhichHand();
-    
+//    fingers.sort(fingerCompare);
+    std::sort(fingers.begin(), fingers.end(), fingerCompare);
 
     printFingerCount((int) fingers.size());
-    drawPalmCenter();
+//    drawPalmCenter();
     drawFingerLines();
     drawConvexity();
     drawFingerIds();
     drawFingerPrints();
-    
-    rectangle(mFrame, handBoundingRect.tl(), handBoundingRect.br(), BLUE);
+
+//    rectangle(mFrame, handBoundingRect.tl(), handBoundingRect.br(), BLUE);
     
 //    drawHandPolygon();
 }
@@ -300,7 +308,7 @@ void HandDetection::addFinger(const Point2f& finger) {
     int minFingerAffinity = handRectDiagonalLength/10;
     // avoid detecting a finger multiple times
     bool isFound = false;
-    for(std::list<Point2f>::const_iterator fi = fingers.cbegin(); fi != fingers.cend() && !isFound; ++fi)
+    for(std::vector<Point2f>::const_iterator fi = fingers.cbegin(); fi != fingers.cend() && !isFound; ++fi)
         isFound = isFound || (CommonUtils::pointDistance(finger,*fi) < minFingerAffinity);
 
     // eliminating if hand is closed
@@ -355,7 +363,7 @@ void HandDetection::findPalmCenter() {
     
     palmRadius = mean/pointCount;
     if(palmRadius > 0) {
-        circle(mFrame,palmCenter,palmRadius,RED,8,8);
+//        circle(mFrame,palmCenter,palmRadius,RED,8,8);
     }
 }
 
@@ -388,6 +396,11 @@ void HandDetection::drawConvexity() const {
 
 bool HandDetection::lineAngleCompare(const Line& l1, const Line& l2) {
     return l1.angle < l2.angle;
+}
+
+
+bool HandDetection::fingerCompare(const Point2f& f1, const Point2f& f2) {
+    return f1.y < f2.y;
 }
 
 void HandDetection::findHandOrientation() {
@@ -424,7 +437,7 @@ void HandDetection::findHandOrientation() {
 }
 
 void HandDetection::deleteFinger(const Point2f& finger) {
-    for(std::list<Point2f>::const_iterator fItr = fingers.cbegin(); fItr != fingers.cend(); ++fItr) {
+    for(std::vector<Point2f>::const_iterator fItr = fingers.cbegin(); fItr != fingers.cend(); ++fItr) {
         if(*fItr == finger) {
             deleteFinger(fItr);
             return;
@@ -432,8 +445,8 @@ void HandDetection::deleteFinger(const Point2f& finger) {
     }
 }
 
-std::list<Point2f>::const_iterator HandDetection::deleteFinger(const std::list<Point2f>::const_iterator finger) {
-    std::list<Point2f>::const_iterator itr = fingers.erase(finger);
+std::vector<Point2f>::const_iterator HandDetection::deleteFinger(const std::vector<Point2f>::const_iterator finger) {
+    std::vector<Point2f>::const_iterator itr = fingers.erase(finger);
     
     // deleting fingerline
     for(std::list<Line>::const_iterator fItr = fingerLines.cbegin(); fItr != fingerLines.cend(); ++fItr) {
@@ -455,7 +468,7 @@ void HandDetection::drawFingerLines() const {
 }
 
 void HandDetection::drawFingerPrints() const {
-    for(std::list<Point2f>::const_iterator d = fingers.cbegin(); d!=fingers.cend(); ++d )
+    for(std::vector<Point2f>::const_iterator d = fingers.cbegin(); d!=fingers.cend(); ++d )
         circle(mFrame,*d,7,CYAN,4);
 
     // circling middle finger
@@ -466,7 +479,7 @@ void HandDetection::drawFingerPrints() const {
 void HandDetection::drawFingerIds() const {
     char buff[2];
     int i = 1;
-    for(std::list<Point2f>::const_iterator d = fingers.cbegin(); d!=fingers.cend(); ++d ) {
+    for(std::vector<Point2f>::const_iterator d = fingers.cbegin(); d!=fingers.cend(); ++d ) {
         sprintf(buff, "%d", i++);
         CommonUtils::putTextWrapper(mFrame, buff, (*d).x+frameWidth/30, (*d).y+frameHeight/30);
     }
