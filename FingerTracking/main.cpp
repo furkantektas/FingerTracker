@@ -3,8 +3,9 @@
 #include "opencv2/calib3d/calib3d.hpp"
 #include "common_utils.h"
 #include "datatypes.h"
-#include "hand.h"
 #include "calibration.h"
+#include "hand3D.h"
+
 using namespace cv;
 
 Calibration calib;
@@ -45,7 +46,9 @@ int main(int argc, char** argv) {
 
     int frameWidth = cap.get(CV_CAP_PROP_FRAME_WIDTH);
     int frameHeight = cap.get(CV_CAP_PROP_FRAME_HEIGHT);
-    
+
+    Hand3D hand(calib,f1,f2,Size(frameWidth,frameHeight));
+
     //create GUI windows
     namedWindow("F1");
     namedWindow("F2");
@@ -66,6 +69,10 @@ int main(int argc, char** argv) {
                      cv::Point(f2.cols,-((*it)[2]+(*it)[0]*f2.cols)/(*it)[1]),
                      cv::Scalar(255,255,255));
         }
+
+        hand.setFrames(f1, f2);
+        hand.find();
+
         imshow("F1",f1);
         imshow("F2",f2);
     }

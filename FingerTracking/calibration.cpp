@@ -78,6 +78,18 @@ void Calibration::calibrateStereoCamera() {
                                  CALIB_RATIONAL_MODEL +
                                  CALIB_FIX_K3 + CALIB_FIX_K4 + CALIB_FIX_K5 );
     cout<<"Stereo calibraton done. RMS Error: "<<rms<<"\n";
+
+    Mat RT = Mat::zeros(3, 4, cameraMatrix[0].type());
+    for(int i=0;i<3;++i){
+        for(int j=0;j<3;++j){
+            RT.at<float>(i,j) = R.at<float>(i,j);
+        }
+        RT.at<float>(i,3) = T.at<float>(i,0);
+    }
+
+    projections[0] =  cameraMatrix[0] * RT;
+    projections[1] =  cameraMatrix[1] * RT;
+
     double err = 0;
     int npoints = 0;
     vector<Vec3f> lines[2];
@@ -189,4 +201,12 @@ const Mat& Calibration::getDistCoeffs1() const {
 
 const Mat& Calibration::getDistCoeffs2() const {
     return distCoeffs[1];
+}
+
+const Mat& Calibration::getProjection1() const {
+    return projections[0];
+}
+
+const Mat& Calibration::getProjection2() const {
+    return projections[1];
 }

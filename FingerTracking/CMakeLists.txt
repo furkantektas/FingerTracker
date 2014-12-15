@@ -10,8 +10,10 @@ set(SOURCE_FILES
     common_utils.cpp
     common_utils.h
     datatypes.h
-    hand.cpp
-    hand.h
+    handDetection.cpp
+    handDetection.h
+    hand3D.cpp
+    hand3D.h
     main.cpp)
 
 find_package( OpenCV REQUIRED )

@@ -16,22 +16,23 @@
 
 using namespace cv;
 
-class Hand{
+class HandDetection {
 public:
-    Hand(Mat& frame, int fWidth, int fHeight) : mFrame(frame), frameWidth(fWidth), frameHeight(fHeight) {}
+    HandDetection(Mat& frame, Size frameSize) : mFrame(frame), frameWidth(frameSize.width), frameHeight(frameSize.height) {}
     void find();
     void setFrame(Mat& frame);
     void refresh();
-    std::list<Point> getFingers() const;
+    std::list<Point2f> getFingers() const;
     const Point& getPalmCenter() const;
     int getFingerCount() const;
+    Mat& getFrame();
 private:
     Mat& mFrame;
     Mat mThreshFrame;
     std::list<Line> fingerLines;
     vector<Point> handPolygon;
     vector<Point> handContour;
-    std::list<Point> fingers;
+    std::list<Point2f> fingers;
     const Line* middleFinger = 0;
     Point palmCenter;
     Rect handBoundingRect;
@@ -45,9 +46,9 @@ private:
     int palmRadius = 0;
 
     void process_frame();
-    void addFinger(const Point& finger);
-    void deleteFinger(const Point& finger);
-    std::list<Point>::const_iterator deleteFinger(const std::list<Point>::const_iterator finger);
+    void addFinger(const Point2f& finger);
+    void deleteFinger(const Point2f& finger);
+    std::list<Point2f>::const_iterator deleteFinger(const std::list<Point2f>::const_iterator finger);
     
     // Algorithm Functions
     void findConvexHull();

@@ -10,7 +10,7 @@
 //#include <opencv2/imgcodecs/imgcodecs.hpp>
 #include <iostream>
 
-#define timeGap 3000000000U
+#define timeGap 100000000U
 
 using namespace cv;
 using namespace std;
@@ -27,9 +27,11 @@ public:
     const Mat& getCameraMatrix2() const;
     const Mat& getDistCoeffs1() const;
     const Mat& getDistCoeffs2() const;
+    const Mat& getProjection1() const;
+    const Mat& getProjection2() const;
 private:
     Mat R,T,E,F;
-    Mat cameraMatrix[2], distCoeffs[2];
+    Mat cameraMatrix[2], distCoeffs[2], projections[2];
     enum Modes { DETECTING, CAPTURING, CALIBRATING};
     Modes mode = DETECTING;
     const int noOfStereoPairs = 14;

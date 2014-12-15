@@ -12,8 +12,8 @@
 #include <opencv2/opencv.hpp>
 
 typedef struct Line_s{
-    cv::Point start;
-    cv::Point end;
+    cv::Point2f start;
+    cv::Point2f end;
     double angle;
 } Line;
 
