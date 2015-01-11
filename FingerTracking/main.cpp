@@ -92,10 +92,12 @@ int main(int argc, char** argv) {
     cap2.set(CV_CAP_PROP_AUTO_EXPOSURE, 0 );
     cap2.set(CV_CAP_PROP_GAIN, 0.0);
     
-    if(!calib.calibrate(cap,cap2)) {
+    int calibrationResult = calib.calibrate(cap,cap2);
+    if(!calibrationResult) {
         std::cout << "Cameras could not been calibrated. Exiting!" << std::endl;
         exit(8);
-    }
+    } else if (calibrationResult == Calibration::ALREADY_CALIBRATED)
+        std::cout << "Cameras have already calibrated. Using previous calibration!" << std::endl;
 
     int frameWidth = cap.get(CV_CAP_PROP_FRAME_WIDTH);
     int frameHeight = cap.get(CV_CAP_PROP_FRAME_HEIGHT);

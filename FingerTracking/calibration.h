@@ -18,7 +18,7 @@ using namespace std;
 class Calibration {
 public:
     Calibration();
-    int calibrate(VideoCapture camLeft, VideoCapture camRight);
+    int calibrate(VideoCapture& camLeft, VideoCapture& camRight, bool forceCalibrate = false);
     const Mat& getR() const;
     const Mat& getT() const;
     const Mat& getE() const;
@@ -29,6 +29,7 @@ public:
     const Mat& getDistCoeffs2() const;
     const Mat& getProjection1() const;
     const Mat& getProjection2() const;
+    static const int ALREADY_CALIBRATED = 3;
 private:
     Mat R,T,E,F;
     Mat cameraMatrix[2], distCoeffs[2], projections[2];
@@ -47,6 +48,9 @@ private:
     void displayImages();
     void saveImages(Mat leftImage, Mat rightImage, int pairIndex);
     void calibrateStereoCamera();
+    void saveCalibrationFiles();
+    bool readCalibrationFiles();
+    const char *PARAMFILE = "camParams.xml";
 };
 
 #endif

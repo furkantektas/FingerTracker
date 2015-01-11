@@ -7,6 +7,7 @@
 //
 
 #include "calibration.h"
+#include <fstream>
 
 using namespace cv;
 using namespace std;
@@ -119,11 +120,60 @@ void Calibration::calibrateStereoCamera() {
         cout<<"Error: Could not open intrinsics file.";
 }
 
-int Calibration::calibrate(VideoCapture camLeft, VideoCapture camRight) {
+void Calibration::saveCalibrationFiles() {
+    FileStorage fs(PARAMFILE, FileStorage::WRITE);
+    
+    time_t rawtime; time(&rawtime);
+    fs << "calibrationDate" << asctime(localtime(&rawtime));
+    fs << "cameraMatrix1" << cameraMatrix[0]
+       << "cameraMatrix2" << cameraMatrix[1]
+       <<  "distCoeffs1" << distCoeffs[0]
+       << "distCoeffs2" << distCoeffs[1]
+       << "projection1" << projections[0]
+       << "projection2" << projections[1]
+       << "R" << R
+       << "T" << T
+       << "E" << E
+       << "F" << F;
+}
+
+bool Calibration::readCalibrationFiles() {
+    if(!std::ifstream(PARAMFILE).good())
+        return false;
+    FileStorage fs(PARAMFILE, FileStorage::READ);
+    
+    std::string date;
+    fs["calibrationDate"] >> date;
+    std::cout << "Reading camera parameters saved on " << date << std::endl;
+
+    fs["cameraMatrix1"] >> cameraMatrix[0];
+    fs["cameraMatrix2"] >> cameraMatrix[1];
+    
+    fs["distCoeffs1"] >> distCoeffs[0];
+    fs["distCoeffs2"] >> distCoeffs[1];
+    
+    fs["projection1"] >> projections[0];
+    fs["projection2"] >> projections[1];
+    
+    fs["R"] >> R;
+    fs["T"] >> T;
+    fs["E"] >> E;
+    fs["F"] >> F;
+    
+    fs.release();
+    return true;
+}
+
+int Calibration::calibrate(VideoCapture& camLeft, VideoCapture& camRight, bool forceCalibrate) {
     if (!camLeft.isOpened() || !camRight.isOpened()) {
         cout<<"Error: Stereo Cameras not found or there is some problem connecting them. Please check your cameras.\n";
         exit(-1);
     }
+    
+    //checking whether calibration is needed and previous calibration parameter files are exists
+    if(!forceCalibrate && readCalibrationFiles())
+        return ALREADY_CALIBRATED;
+    
     system("pwd");
     
     Mat copyImageLeft, copyImageRight;
@@ -131,7 +181,8 @@ int Calibration::calibrate(VideoCapture camLeft, VideoCapture camRight) {
     namedWindow("Left Image");
     namedWindow("Right Image");
     mode = CAPTURING;
-    for( ; ; ) {
+    int key = 0;
+    for( ;; key = (key == 32) ? 32 : waitKey(30)) {
         camLeft>>_leftOri;
         camRight>>_rightOri;
         if ((_leftOri.rows != _rightOri.rows) || (_leftOri.cols != _rightOri.cols)) {
@@ -140,18 +191,14 @@ int Calibration::calibrate(VideoCapture camLeft, VideoCapture camRight) {
         }
         _leftOri.copyTo(copyImageLeft);
         _rightOri.copyTo(copyImageRight);
+
         foundCornersInBothImage = findChessBoard();
-        if (foundCornersInBothImage && stereoPairIndex<noOfStereoPairs) {
-            int64 thisTick = getTickCount();
-            int64 diff = thisTick - prevTickCount;
-            if (goIn==1 || diff >= timeGap) {
-                goIn=0;
-                saveImages(copyImageLeft, copyImageRight, ++stereoPairIndex);
-                prevTickCount = getTickCount();
-            }
+        if (key == 32 && foundCornersInBothImage && stereoPairIndex<noOfStereoPairs) {
+            key = 0;
+            saveImages(copyImageLeft, copyImageRight, ++stereoPairIndex);
         }
         displayImages();
-        if( 27 == waitKey(10)) {
+        if( key == 27) {
             std::cout << "Calibration Cancelled" << std::endl;
             return 0;
         }
@@ -159,10 +206,13 @@ int Calibration::calibrate(VideoCapture camLeft, VideoCapture camRight) {
         if(stereoPairIndex == noOfStereoPairs)
             break;
     }
-    mode = CALIBRATING;
-    calibrateStereoCamera();
+    
     destroyWindow("Left Image");
     destroyWindow("Right Image");
+    
+    mode = CALIBRATING;
+    calibrateStereoCamera();
+    saveCalibrationFiles();
     return 1;
 }
 
